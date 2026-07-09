@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Antigravity Omni - SaaS de Messagerie Unifiée (MVP)
 
-## Getting Started
+Une interface moderne, sombre et épurée (style Linear/Superhuman) pour centraliser vos conversations sur plusieurs plateformes. 
+Ce MVP implémente et active uniquement la plateforme **Twitter/X**, les autres onglets (**Instagram**, **Messenger**, **Threads**) étant désactivés pour l'instant avec une modale "Bientôt disponible".
 
-First, run the development server:
+---
 
+## 🛠️ Stack Technique
+
+- **Framework** : Next.js 14+ (App Router, Strict TypeScript, Tailwind CSS v4)
+- **Librairie X** : `twitter-api-v2` (OAuth 2.0 avec PKCE)
+- **Chiffrement** : `AES-256-GCM` (stockage sécurisé des sessions)
+- **Base de données** : Supabase (service_role)
+- **Icônes** : `lucide-react`
+
+---
+
+## ⚙️ Configuration & Installation
+
+### 1. Installation des dépendances
+
+À la racine du projet, installez les modules requis :
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configuration des variables d'environnement
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copiez le fichier d'exemple pour créer votre fichier local :
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Ouvrez `.env.local` et renseignez vos clés :
+```env
+# Clés Supabase
+NEXT_PUBLIC_SUPABASE_URL="https://votre-projet.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="votre_service_role_key"
 
-## Learn More
+# Clé de chiffrement (Chaîne hexadécimale de 64 caractères / 32 octets)
+# Générez une clé via : node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+SESSION_ENCRYPTION_KEY="votre_cle_de_chiffrement_hex"
 
-To learn more about Next.js, take a look at the following resources:
+# Clés OAuth 2.0 de X (Twitter)
+X_CLIENT_ID="VOTRE_CLIENT_ID_OAUTH2"
+X_CLIENT_SECRET="VOTRE_CLIENT_SECRET_OAUTH2"
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+> [!IMPORTANT]
+> **Configuration du portail développeur X (developer.x.com) pour OAuth 2.0 :**
+> 1. Allez dans votre application sur le portail développeur X.
+> 2. Sous **User authentication settings**, cliquez sur **Set up** (ou **Edit**).
+> 3. Activez **OAuth 2.0**.
+> 4. Définissez le type d'application sur **Web App, Automated App or Bot**.
+> 5. Dans **App Info**, configurez le **Callback URI / Redirect URL** sur :
+>    `http://127.0.0.1:3000/api/x/callback` (ou votre URL de production en HTTPS).
+>    Configurez le **Website URL** (ex. `http://127.0.0.1:3000`).
+> 6. Enregistrez. X va vous afficher votre **Client ID** et votre **Client Secret**. Copiez-les dans votre fichier `.env.local`.
+> 7. Vérifiez également que les permissions d'authentification incluent **"Read and write and Direct message"** pour que l'écriture de DMs fonctionne.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 💸 Contrôle du Budget de l'API X (Twitter)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Pour éviter des facturations excessives ou inattendues, les mécanismes de sécurité suivants sont mis en place :
+1. **Pas de requêtes automatiques** : L'application ne charge aucune donnée au montage de la page ni via polling.
+2. **Rafraîchissement manuel** : La synchronisation des conversations s'effectue exclusivement par le clic sur le bouton **"Rafraîchir les messages X"**.
+3. **Cooldown de 60 secondes** : Le bouton de rafraîchissement se désactive pendant 60 secondes après chaque clic, affichant un compte à rebours visuel.
+4. **Validation d'envoi** : Toute réponse écrite déclenche une modale de confirmation d'envoi pour éviter les clics accidentels facturés.
+5. **Compteur d'appels** : Un compteur affiche en permanence le nombre d'appels API effectués pendant la session de navigation.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 🚀 Lancement de l'application
+
+Lancez le serveur de développement en local :
+```bash
+npm run dev
+```
+
+L'application sera accessible sur [http://localhost:3000](http://localhost:3000).
