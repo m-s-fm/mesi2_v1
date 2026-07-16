@@ -21,11 +21,6 @@ Les anciennes tables de développement Telegram ont été supprimées et le code
 
 ## ⚙️ Configuration & Installation
 
-### 1. Déploiement de la base de données (Supabase)
-Avant de lancer le projet, exécutez le script SQL de migration contenu dans [auth_stripe_migration.sql](file:///d:/amine/dev_project/DEV/mesi_2/auth_stripe_migration.sql) dans l'éditeur SQL de votre console Supabase. Ce script :
-* Supprime les anciennes tables Telegram.
-* Crée la table `subscriptions` (avec RLS restrictive).
-* Active RLS sur `x_sessions` et `x_login_attempts` pour restreindre l'accès à `auth.uid() = user_id`.
 
 **Optionnel :** Si vous souhaitez supprimer les anciens messages d'une plateforme Telegram inutilisée dans la table `messages`, exécutez la requête SQL suivante :
 ```sql
@@ -59,6 +54,11 @@ STRIPE_SECRET_KEY="sk_test_..."
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 NEXT_PUBLIC_STRIPE_PRICE_ID="price_..."
+
+# Configuration Discord
+DISCORD_CLIENT_ID=""
+DISCORD_CLIENT_SECRET="
+DISCORD_REDIRECT_URI=""
 ```
 
 ---
