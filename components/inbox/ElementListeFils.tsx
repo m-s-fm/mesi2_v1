@@ -25,7 +25,10 @@ export default function ElementListeFils({
    */
   const obtenirInterlocuteur = (f: FilDiscussion): Participant => {
     if (!utilisateurCourant) return f.participants[0] || { id: 'unknown', nom: 'Utilisateur' };
-    const interlocuteur = f.participants.find(p => p.nomUtilisateur !== utilisateurCourant.nomUtilisateur);
+    const interlocuteur = f.participants.find(p => 
+      p.nomUtilisateur !== utilisateurCourant.nomUtilisateur &&
+      p.nomUtilisateur !== (utilisateurCourant as any).nomUtilisateurDiscord
+    );
     return interlocuteur || f.participants[0] || { id: 'unknown', nom: 'Utilisateur' };
   };
 
@@ -61,6 +64,11 @@ export default function ElementListeFils({
     }
   };
 
+  const estDiscord = fil.plateforme === 'discord';
+  const titreAffichage = estDiscord
+    ? (fil.nomFil || 'Canal Discord')
+    : (interlocuteur.nom || `Utilisateur ${interlocuteur.id}`);
+
   return (
     <button
       onClick={onClick}
@@ -70,8 +78,12 @@ export default function ElementListeFils({
           : 'hover:bg-[#121214]/50'
       }`}
     >
-      {/* Avatar de l'interlocuteur */}
-      {interlocuteur.urlAvatar ? (
+      {/* Avatar de l'interlocuteur ou icône salon Discord */}
+      {estDiscord ? (
+        <div className="w-10 h-10 rounded-lg bg-indigo-950/40 border border-indigo-900/40 flex items-center justify-center shrink-0">
+          <span className="text-indigo-400 font-bold text-lg">#</span>
+        </div>
+      ) : interlocuteur.urlAvatar ? (
         <img
           src={interlocuteur.urlAvatar}
           alt={interlocuteur.nom}
@@ -87,7 +99,7 @@ export default function ElementListeFils({
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between mb-1">
           <h4 className="text-xs font-semibold text-zinc-200 truncate pr-1">
-            {interlocuteur.nom || `Utilisateur ${interlocuteur.id}`}
+            {titreAffichage}
           </h4>
           {fil.dernierMessage && (
             <span className="text-[9px] text-zinc-500 font-mono shrink-0">
@@ -97,12 +109,21 @@ export default function ElementListeFils({
         </div>
 
         <p className="text-xs text-zinc-400 truncate leading-snug">
-          {fil.dernierMessage ? fil.dernierMessage.texte : "Aucun message"}
+          {fil.dernierMessage ? (
+            estDiscord ? (
+              <>
+                <span className="text-zinc-500">{fil.dernierMessage.nomUtilisateurExpediteur || fil.dernierMessage.idExpediteur}: </span>
+                {fil.dernierMessage.texte}
+              </>
+            ) : (
+              fil.dernierMessage.texte
+            )
+          ) : "Aucun message"}
         </p>
 
         <div className="flex items-center gap-1.5 mt-2">
           {obtenirIconePlateforme()}
-          {interlocuteur.nomUtilisateur && (
+          {!estDiscord && interlocuteur.nomUtilisateur && (
             <span className="text-[9px] text-zinc-500 font-mono">@{interlocuteur.nomUtilisateur}</span>
           )}
         </div>

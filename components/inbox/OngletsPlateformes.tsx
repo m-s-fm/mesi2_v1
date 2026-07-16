@@ -40,12 +40,12 @@ export default function OngletsPlateformes({
   // Plateformes pleinement actives
   const plateformesActives: { id: Plateforme | 'all'; label: string; icon: React.ReactNode }[] = [
     { id: 'all', label: 'Tous', icon: null },
-    { id: 'twitter', label: 'Twitter/X', icon: <IconeTwitter className="w-3.5 h-3.5 text-sky-400" /> }
+    { id: 'twitter', label: 'Twitter/X', icon: <IconeTwitter className="w-3.5 h-3.5 text-sky-400" /> },
+    { id: 'discord', label: 'Discord', icon: <IconeDiscord className="w-3.5 h-3.5 text-[#5865F2]" /> }
   ];
 
   // Plateformes prévues mais verrouillées (MVP)
   const plateformesInactives = [
-    { id: 'discord', label: 'Discord', icon: <IconeDiscord className="w-3.5 h-3.5 text-[#5865F2]" /> },
     { id: 'instagram', label: 'Instagram', icon: <IconeInstagram className="w-3.5 h-3.5 text-pink-500" /> },
     { id: 'messenger', label: 'Messenger', icon: <MessageCircle className="w-3.5 h-3.5 text-blue-500" /> },
     { id: 'threads', label: 'Threads', icon: <Layers className="w-3.5 h-3.5 text-white" /> }

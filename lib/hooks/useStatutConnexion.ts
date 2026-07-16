@@ -21,7 +21,7 @@ export function useStatutConnexion(
     if (!idUtilisateur) return;
 
     const plateformeCible = plateforme === 'all' ? 'twitter' : plateforme;
-    if (plateformeCible !== 'twitter') {
+    if (plateformeCible !== 'twitter' && plateformeCible !== 'discord') {
       setEstConnecte(false);
       setNomUtilisateur(undefined);
       setNom(undefined);

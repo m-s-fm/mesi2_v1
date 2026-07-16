@@ -52,7 +52,10 @@ export default function FenetreDiscussion({
    */
   const obtenirInterlocuteur = (f: FilDiscussion): Participant => {
     if (!utilisateurCourant) return f.participants[0] || { id: 'unknown', nom: 'Utilisateur' };
-    const interlocuteur = f.participants.find(p => p.nomUtilisateur !== utilisateurCourant.nomUtilisateur);
+    const interlocuteur = f.participants.find(p => 
+      p.nomUtilisateur !== utilisateurCourant.nomUtilisateur &&
+      p.nomUtilisateur !== (utilisateurCourant as any).nomUtilisateurDiscord
+    );
     return interlocuteur || f.participants[0] || { id: 'unknown', nom: 'Utilisateur' };
   };
 
@@ -119,7 +122,12 @@ export default function FenetreDiscussion({
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {fil.messages.map(message => {
           const estMoi = utilisateurCourant 
-            ? message.idExpediteur === utilisateurCourant.nomUtilisateur || message.nomUtilisateurExpediteur === utilisateurCourant.nomUtilisateur 
+            ? message.idExpediteur === utilisateurCourant.nomUtilisateur || 
+              message.nomUtilisateurExpediteur === utilisateurCourant.nomUtilisateur ||
+              ((utilisateurCourant as any).nomUtilisateurDiscord && (
+                message.idExpediteur === (utilisateurCourant as any).nomUtilisateurDiscord ||
+                message.nomUtilisateurExpediteur === (utilisateurCourant as any).nomUtilisateurDiscord
+              ))
             : false;
           return (
             <BulleMessage

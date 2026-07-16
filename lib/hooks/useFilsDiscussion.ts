@@ -22,8 +22,15 @@ export function useFilsDiscussion(
   const recupererFilsDiscussion = useCallback(async (chargerPlus: boolean = false) => {
     if (!idUtilisateur) return;
 
-    const plateformeCible = plateforme === 'all' ? 'twitter' : plateforme;
-    if (plateformeCible !== 'twitter') {
+    let routes: string[] = [];
+    if (plateforme === 'all') {
+      routes.push('x');
+      routes.push('discord');
+    } else if (plateforme === 'twitter') {
+      routes.push('x');
+    } else if (plateforme === 'discord') {
+      routes.push('discord');
+    } else {
       setFilsDiscussion([]);
       setIdFilSelectionne(null);
       setProchainJeton(null);
@@ -35,35 +42,52 @@ export function useFilsDiscussion(
 
     try {
       const parametreJeton = chargerPlus && prochainJeton ? `&nextToken=${prochainJeton}` : '';
-      const prefixeApi = obtenirPrefixeApiPlateforme(plateformeCible);
       
-      const reponse = await fetch(`/api/${prefixeApi}/messages?${parametreJeton}`);
-      const donnees = await reponse.json();
+      const requetes = routes.map(async (prefixeApi) => {
+        try {
+          const reponse = await fetch(`/api/${prefixeApi}/messages?${parametreJeton}`);
+          if (!reponse.ok) return [];
+          const donnees = await reponse.json();
+          return donnees.success ? (donnees.filsDiscussion || []) : [];
+        } catch {
+          return [];
+        }
+      });
 
-      if (donnees.success) {
-        // La route API retourne désormais 'filsDiscussion' normalisé
-        const nouveauxFils = donnees.filsDiscussion || [];
-        if (chargerPlus) {
-          setFilsDiscussion(prev => {
-            const fusionne = fusionnerFilsDiscussion(prev, nouveauxFils);
-            if (fusionne.length > 0 && !idFilSelectionne) {
-              setIdFilSelectionne(fusionne[0].id);
-            }
-            return fusionne;
-          });
-        } else {
-          setFilsDiscussion(nouveauxFils);
-          if (nouveauxFils.length > 0 && !idFilSelectionne) {
-            setIdFilSelectionne(nouveauxFils[0].id);
+      const listesFils = await Promise.all(requetes);
+      const nouveauxFils = listesFils.flat();
+
+      // Trier les nouveaux fils par date du dernier message pour conserver la chronologie
+      nouveauxFils.sort((a, b) => {
+        const dateA = a.dernierMessage ? new Date(a.dernierMessage.creeLe).getTime() : 0;
+        const dateB = b.dernierMessage ? new Date(b.dernierMessage.creeLe).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      if (chargerPlus) {
+        setFilsDiscussion(prev => {
+          const fusionne = fusionnerFilsDiscussion(prev, nouveauxFils);
+          if (fusionne.length > 0 && !idFilSelectionne) {
+            setIdFilSelectionne(fusionne[0].id);
           }
-        }
-        setProchainJeton(donnees.nextToken || null);
-        if (donnees.globalApiCallCount !== undefined && surMiseAJourConsommationApi) {
-          surMiseAJourConsommationApi(donnees.globalApiCallCount);
-        }
+          return fusionne;
+        });
       } else {
-        throw new Error(donnees.error || "Impossible de charger les messages");
+        setFilsDiscussion(nouveauxFils);
+        if (nouveauxFils.length > 0 && !idFilSelectionne) {
+          setIdFilSelectionne(nouveauxFils[0].id);
+        }
       }
+      
+      // Récupérer le compteur global depuis Twitter (notre unique compteur payant)
+      try {
+        const reponseBudget = await fetch(`/api/x/user`);
+        const donneesBudget = await reponseBudget.json();
+        if (donneesBudget.success && donneesBudget.globalApiCallCount !== undefined && surMiseAJourConsommationApi) {
+          surMiseAJourConsommationApi(donneesBudget.globalApiCallCount);
+        }
+      } catch {}
+
     } catch (err: any) {
       console.error(`Error fetching threads for ${plateforme}:`, err);
       setErreurConfiguration(err.message || "Une erreur est survenue.");
@@ -80,7 +104,8 @@ export function useFilsDiscussion(
     setEstEnCoursDEnvoi(true);
 
     try {
-      const plateformeCible = plateforme === 'all' ? 'twitter' : plateforme;
+      const filCible = filsDiscussion.find(f => f.id === idFil);
+      const plateformeCible = filCible ? filCible.plateforme : (plateforme === 'all' ? 'twitter' : plateforme);
       const prefixeApi = obtenirPrefixeApiPlateforme(plateformeCible);
       
       const reponse = await fetch(`/api/${prefixeApi}/messages`, {
@@ -118,7 +143,7 @@ export function useFilsDiscussion(
     } finally {
       setEstEnCoursDEnvoi(false);
     }
-  }, [plateforme, idUtilisateur, surMiseAJourConsommationApi]);
+  }, [plateforme, idUtilisateur, surMiseAJourConsommationApi, filsDiscussion]);
 
   // Réinitialiser la sélection de conversation au changement de plateforme active
   useEffect(() => {

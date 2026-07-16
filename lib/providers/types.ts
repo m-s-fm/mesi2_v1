@@ -31,6 +31,7 @@ export interface Participant {
  */
 export interface FilDiscussion {
   id: string;
+  nomFil?: string;
   participants: Participant[];
   dernierMessage?: Message;
   messages: Message[];

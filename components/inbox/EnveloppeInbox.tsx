@@ -11,6 +11,7 @@ import BoutonRafraichir from './BoutonRafraichir';
 import DialogueConfirmationEnvoi from './DialogueConfirmationEnvoi';
 import ModaleBientotDisponible from '@/components/connections/ModaleBientotDisponible';
 import ConnexionX from '@/components/ConnexionX';
+import ConnexionDiscord from '@/components/ConnexionDiscord';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 /**
@@ -50,13 +51,19 @@ export default function EnveloppeInbox() {
     setCompteurGlobalAppels(compteur);
   }, []);
 
-  // --- HOOKS DE SYNC ET DE LOGIQUE ---
+  // --- HOOKS DE SYNC DE CONNEXION ---
   const {
     estConnecte: estXConnecte,
     nomUtilisateur: nomUtilisateurX,
     nom: nomX,
-    verifierStatutConnexion
-  } = useStatutConnexion(plateformeActive, idUtilisateur, gererMiseAJourConsommationApi);
+    verifierStatutConnexion: verifierStatutX
+  } = useStatutConnexion('twitter', idUtilisateur, gererMiseAJourConsommationApi);
+
+  const {
+    estConnecte: estDiscordConnecte,
+    nomUtilisateur: nomUtilisateurDiscord,
+    verifierStatutConnexion: verifierStatutDiscord
+  } = useStatutConnexion('discord', idUtilisateur, gererMiseAJourConsommationApi);
 
   const {
     filsDiscussion,
@@ -72,12 +79,12 @@ export default function EnveloppeInbox() {
 
   const { secondesAttente, demarrerAttente } = useTempsAttenteApi(60);
 
-  // Charger automatiquement les fils lors du montage si l'utilisateur est connecté à X
+  // Charger automatiquement les fils lors du montage si l'utilisateur est connecté à X ou Discord
   useEffect(() => {
-    if (idUtilisateur && estXConnecte && filsDiscussion.length === 0) {
+    if (idUtilisateur && (estXConnecte || estDiscordConnecte) && filsDiscussion.length === 0) {
       recupererFilsDiscussion(false);
     }
-  }, [idUtilisateur, estXConnecte, recupererFilsDiscussion]);
+  }, [idUtilisateur, estXConnecte, estDiscordConnecte, recupererFilsDiscussion]);
 
   // --- LOGIQUE DES ACTIONS UTILISATEUR ---
   
@@ -152,10 +159,11 @@ export default function EnveloppeInbox() {
 
   const filActif = filsDiscussion.find(t => t.id === idFilSelectionne) || null;
   const plateformeActuelleEnvoi = filActif?.plateforme || 'twitter';
-  const utilisateurCourantObj = estXConnecte && nomUtilisateurX ? {
-    nomUtilisateur: nomUtilisateurX,
-    nom: nomX || `@${nomUtilisateurX}`
-  } : null;
+  const utilisateurCourantObj = {
+    nomUtilisateur: nomUtilisateurX || '',
+    nomUtilisateurDiscord: nomUtilisateurDiscord || '',
+    nom: nomX || `@${nomUtilisateurX}` || ''
+  };
 
   return (
     <div className="flex flex-col h-screen bg-[#09090b] text-[#fafafa] font-sans selection:bg-[#27272a] selection:text-white antialiased overflow-hidden">
@@ -205,12 +213,18 @@ export default function EnveloppeInbox() {
         
         {/* BARRE LATÉRALE : LISTE DES CONVERSATIONS */}
         <aside className="w-80 flex flex-col border-r border-[#1e1e24] bg-[#09090b] shrink-0 h-full">
-          {/* Widget de connexion Twitter/X */}
+          {/* Widget de connexion Twitter/X & Discord */}
           <div className="p-4 border-b border-[#1e1e24] bg-[#121214]/30">
             <ConnexionX 
               idUtilisateur={idUtilisateur}
               estConnecte={estXConnecte}
               nomUtilisateur={nomUtilisateurX}
+              estEnCoursDeChargement={estEnCoursDeRecuperation}
+            />
+            <ConnexionDiscord
+              idUtilisateur={idUtilisateur}
+              estConnecte={estDiscordConnecte}
+              nomUtilisateur={nomUtilisateurDiscord}
               estEnCoursDeChargement={estEnCoursDeRecuperation}
             />
           </div>
@@ -222,7 +236,7 @@ export default function EnveloppeInbox() {
               secondesAttente={secondesAttente}
               estEnCoursDeChargement={estEnCoursDeRecuperation}
               compteurGlobalAppels={compteurGlobalAppels}
-              estConnecte={estXConnecte}
+              estConnecte={plateformeActive === 'discord' ? estDiscordConnecte : (plateformeActive === 'all' ? (estXConnecte || estDiscordConnecte) : estXConnecte)}
               surRafraichir={gererRafraichissement}
             />
           </div>
@@ -249,6 +263,7 @@ export default function EnveloppeInbox() {
               prochainJeton={prochainJeton}
               surSelectionnerFil={setIdFilSelectionne}
               surChargerPlus={gererChargerPlus}
+              plateformeActive={plateformeActive}
             />
           </div>
         </aside>
