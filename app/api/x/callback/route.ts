@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { supabase } from '@/lib/supabase';
-import { encrypt } from '@/lib/crypto';
+import { chiffrer } from '@/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+/**
+ * Endpoint de callback appelé par Twitter/X après l'authentification de l'utilisateur.
+ * Échange le code d'autorisation contre des jetons d'accès et rafraîchissement chiffrés.
+ */
+export async function GET(requete: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
-    const errorParam = searchParams.get('error');
+    const { searchParams: parametresRecherche } = new URL(requete.url);
+    const code = parametresRecherche.get('code');
+    const state = parametresRecherche.get('state');
+    const parametreErreur = parametresRecherche.get('error');
 
-    if (errorParam) {
-      console.error("X OAuth Error from query:", errorParam);
-      return NextResponse.redirect(`${new URL(request.url).origin}/?error=${encodeURIComponent(errorParam)}`);
+    if (parametreErreur) {
+      console.error("X OAuth Error from query:", parametreErreur);
+      return NextResponse.redirect(`${new URL(requete.url).origin}/?error=${encodeURIComponent(parametreErreur)}`);
     }
 
     if (!code || !state) {
@@ -24,15 +28,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 1. Récupérer la tentative correspondante en base
-    const { data: attempt, error: dbError } = await supabase
+    // 1. Récupérer la tentative correspondante en base de données (client admin)
+    const { data: tentative, error: erreurDb } = await supabase
       .from('x_login_attempts')
       .select('*')
       .eq('state', state)
       .maybeSingle();
 
-    if (dbError || !attempt) {
-      console.error("Tentative invalide ou expirée :", dbError);
+    if (erreurDb || !tentative) {
+      console.error("Tentative invalide ou expirée :", erreurDb);
       return NextResponse.json(
         { error: "Session d'authentification X expirée ou invalide. Veuillez réessayer." },
         { status: 400 }
@@ -43,74 +47,77 @@ export async function GET(request: NextRequest) {
     const clientSecret = process.env.X_CLIENT_SECRET || '';
 
     // 2. Échanger le code contre les tokens d'accès
-    const client = new TwitterApi({
+    const clientTwitter = new TwitterApi({
       clientId: clientId,
       clientSecret: clientSecret,
     });
 
-    const redirectUri = process.env.X_REDIRECT_URI || `${new URL(request.url).origin}/api/x/callback`;
+    const lienRedirection = process.env.X_REDIRECT_URI || `${new URL(requete.url).origin}/api/x/callback`;
 
-    const { client: userClient, accessToken, refreshToken, expiresIn } = await client.loginWithOAuth2({
+    const { 
+      client: clientUtilisateur, 
+      accessToken: jetonAcces, 
+      refreshToken: jetonRafraichissement, 
+      expiresIn: dureeExpiration 
+    } = await clientTwitter.loginWithOAuth2({
       code: code,
-      codeVerifier: attempt.code_verifier,
-      redirectUri: redirectUri,
+      codeVerifier: tentative.code_verifier,
+      redirectUri: lienRedirection,
     });
 
     // 3. Récupérer les informations de l'utilisateur X connecté
-    const me = await userClient.v2.me();
-    const xUsername = me.data.username;
-    const xUserId = me.data.id;
+    const moi = await clientUtilisateur.v2.me();
+    const nomUtilisateurX = moi.data.username;
+    const idUtilisateurX = moi.data.id;
 
     // 4. Chiffrer les tokens d'accès et de rafraîchissement
-    const encryptedAccessToken = encrypt(accessToken);
-    const encryptedRefreshToken = refreshToken ? encrypt(refreshToken) : '';
-    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+    const jetonAccesChiffre = chiffrer(jetonAcces);
+    const jetonRafraichissementChiffre = jetonRafraichissement ? chiffrer(jetonRafraichissement) : '';
+    const expireLe = new Date(Date.now() + dureeExpiration * 1000).toISOString();
 
-    // 5. Enregistrer / Mettre à jour la session en base (x_sessions)
-    const { error: upsertError } = await supabase
+    // 5. Enregistrer / Mettre à jour la session X de l'utilisateur en base
+    const { error: erreurMiseAJour } = await supabase
       .from('x_sessions')
       .upsert({
-        user_id: attempt.user_id,
-        access_token: encryptedAccessToken,
-        refresh_token: encryptedRefreshToken,
-        expires_at: expiresAt,
-        x_username: xUsername,
-        x_user_id: xUserId,
+        user_id: tentative.user_id,
+        access_token: jetonAccesChiffre,
+        refresh_token: jetonRafraichissementChiffre,
+        expires_at: expireLe,
+        x_username: nomUtilisateurX,
+        x_user_id: idUtilisateurX,
       }, {
         onConflict: 'user_id'
       });
 
-    if (upsertError) {
-      console.error("Erreur lors de l'enregistrement de la session chiffrée :", upsertError);
+    if (erreurMiseAJour) {
+      console.error("Erreur lors de l'enregistrement de la session chiffrée :", erreurMiseAJour);
       return NextResponse.json(
         { error: "Impossible de finaliser l'enregistrement de votre compte X." },
         { status: 500 }
       );
     }
 
-    // 6. Nettoyer les tentatives de connexion
-    // Supprimer la tentative actuelle
-    await supabase.from('x_login_attempts').delete().eq('id', attempt.id);
+    // 6. Nettoyer la tentative de connexion utilisée et les anciennes tentatives expirées
+    await supabase.from('x_login_attempts').delete().eq('id', tentative.id);
     
-    // Supprimer les tentatives de plus de 10 minutes
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    await supabase.from('x_login_attempts').delete().lt('created_at', tenMinutesAgo);
+    const ilYATenMinutes = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    await supabase.from('x_login_attempts').delete().lt('created_at', ilYATenMinutes);
 
-    // 7. Rediriger l'utilisateur vers le dashboard principal avec son ID
-    return NextResponse.redirect(`${new URL(request.url).origin}/?user_id=${attempt.user_id}`);
-  } catch (error: any) {
-    console.error("Erreur durant le callback X OAuth :", error);
+    // 7. Rediriger l'utilisateur vers le dashboard principal (la session Supabase gère l'accès)
+    return NextResponse.redirect(`${new URL(requete.url).origin}/`);
+  } catch (erreur: any) {
+    console.error("Erreur durant le callback X OAuth :", erreur);
     
-    if (error.data) {
-      console.error("Détails complets de la réponse d'erreur de X :", JSON.stringify(error.data, null, 2));
+    if (erreur.data) {
+      console.error("Détails complets de la réponse d'erreur de X :", JSON.stringify(erreur.data, null, 2));
     }
 
     return NextResponse.json(
       { 
-        error: error.message || "Erreur interne lors du callback.",
-        details: error.data || null
+        error: erreur.message || "Erreur interne lors du callback.",
+        details: erreur.data || null
       },
-      { status: error.code || 500 }
+      { status: erreur.code || 500 }
     );
   }
 }

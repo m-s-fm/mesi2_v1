@@ -1,81 +1,99 @@
-# Antigravity Omni - SaaS de Messagerie Unifiée (MVP)
+# MesiComunication - SaaS de Messagerie Unifiée (MVP)
 
 Une interface moderne, sombre et épurée (style Linear/Superhuman) pour centraliser vos conversations sur plusieurs plateformes. 
-Ce MVP implémente et active uniquement la plateforme **Twitter/X**, les autres onglets (**Instagram**, **Messenger**, **Threads**) étant désactivés pour l'instant avec une modale "Bientôt disponible".
+Ce MVP implémente et active uniquement la plateforme **Twitter/X**, sécurisée par **Supabase Auth** et restreinte par un mur d'abonnement **Stripe Checkout**.
+
+Les anciennes tables de développement Telegram ont été supprimées et le code nettoyé.
 
 ---
 
 ## 🛠️ Stack Technique
 
-- **Framework** : Next.js 14+ (App Router, Strict TypeScript, Tailwind CSS v4)
+- **Framework** : Next.js 16+ (App Router, Strict TypeScript, Tailwind CSS v4)
+- **Authentification** : Supabase Auth via `@supabase/ssr` (Sessions gérées par cookies serveur)
+- **Abonnements** : Stripe Billing (Redirection Stripe Checkout + synchronisation Webhook)
 - **Librairie X** : `twitter-api-v2` (OAuth 2.0 avec PKCE)
 - **Chiffrement** : `AES-256-GCM` (stockage sécurisé des sessions)
-- **Base de données** : Supabase (service_role)
+- **Base de données** : Supabase (service_role pour la synchronisation, RLS pour les utilisateurs)
 - **Icônes** : `lucide-react`
 
 ---
 
 ## ⚙️ Configuration & Installation
 
-### 1. Installation des dépendances
+### 1. Déploiement de la base de données (Supabase)
+Avant de lancer le projet, exécutez le script SQL de migration contenu dans [auth_stripe_migration.sql](file:///d:/amine/dev_project/DEV/mesi_2/auth_stripe_migration.sql) dans l'éditeur SQL de votre console Supabase. Ce script :
+* Supprime les anciennes tables Telegram.
+* Crée la table `subscriptions` (avec RLS restrictive).
+* Active RLS sur `x_sessions` et `x_login_attempts` pour restreindre l'accès à `auth.uid() = user_id`.
 
+**Optionnel :** Si vous souhaitez supprimer les anciens messages d'une plateforme Telegram inutilisée dans la table `messages`, exécutez la requête SQL suivante :
+```sql
+DELETE FROM messages WHERE platform = 'telegram';
+```
+
+### 2. Installation des dépendances
 À la racine du projet, installez les modules requis :
 ```bash
 npm install
 ```
 
-### 2. Configuration des variables d'environnement
-
-Copiez le fichier d'exemple pour créer votre fichier local :
-```bash
-cp .env.example .env.local
-```
-
-Ouvrez `.env.local` et renseignez vos clés :
+### 3. Configuration des variables d'environnement
+Créez ou modifiez votre fichier `.env.local` et renseignez les variables requises :
 ```env
 # Clés Supabase
 NEXT_PUBLIC_SUPABASE_URL="https://votre-projet.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY="votre_service_role_key"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="votre_cle_publique_anon"
+SUPABASE_SERVICE_ROLE_KEY="votre_cle_service_role"
 
-# Clé de chiffrement (Chaîne hexadécimale de 64 caractères / 32 octets)
-# Générez une clé via : node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Chiffrement session (64 caractères hexadécimaux)
 SESSION_ENCRYPTION_KEY="votre_cle_de_chiffrement_hex"
 
-# Clés OAuth 2.0 de X (Twitter)
-X_CLIENT_ID="VOTRE_CLIENT_ID_OAUTH2"
-X_CLIENT_SECRET="VOTRE_CLIENT_SECRET_OAUTH2"
+# OAuth 2.0 X (Twitter)
+X_CLIENT_ID="votre_client_id"
+X_CLIENT_SECRET="votre_client_secret"
+X_REDIRECT_URI="http://127.0.0.1:3000/api/x/callback"
+
+# Configuration Stripe
+STRIPE_SECRET_KEY="sk_test_..."
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_STRIPE_PRICE_ID="price_..."
 ```
 
-> [!IMPORTANT]
-> **Configuration du portail développeur X (developer.x.com) pour OAuth 2.0 :**
-> 1. Allez dans votre application sur le portail développeur X.
-> 2. Sous **User authentication settings**, cliquez sur **Set up** (ou **Edit**).
-> 3. Activez **OAuth 2.0**.
-> 4. Définissez le type d'application sur **Web App, Automated App or Bot**.
-> 5. Dans **App Info**, configurez le **Callback URI / Redirect URL** sur :
->    `http://127.0.0.1:3000/api/x/callback` (ou votre URL de production en HTTPS).
->    Configurez le **Website URL** (ex. `http://127.0.0.1:3000`).
-> 6. Enregistrez. X va vous afficher votre **Client ID** et votre **Client Secret**. Copiez-les dans votre fichier `.env.local`.
-> 7. Vérifiez également que les permissions d'authentification incluent **"Read and write and Direct message"** pour que l'écriture de DMs fonctionne.
+---
+
+## 💳 Mode Test Stripe (Webhook & Redirection)
+
+Pour tester le flux complet d'abonnement en local, vous devez écouter les webhooks de Stripe :
+
+1. **Lancez le service Stripe CLI** dans un terminal séparé pour rediriger les événements Stripe vers votre endpoint local :
+   ```bash
+   stripe listen --forward-to 127.0.0.1:3000/api/stripe/webhook
+   ```
+2. Copiez la clé secrète générée dans le terminal par la commande (de type `whsec_...`) et collez-la dans la variable `STRIPE_WEBHOOK_SECRET` de votre fichier `.env.local`.
+3. Pour effectuer un paiement de test sur Stripe Checkout, utilisez le numéro de carte de crédit générique de test :
+   * **Numéro de carte** : `4242 4242 4242 4242`
+   * **Date d'expiration** : N'importe quelle date future (ex: `12/32`)
+   * **CVC** : N'importe quel code à 3 chiffres (ex: `123`)
 
 ---
 
 ## 💸 Contrôle du Budget de l'API X (Twitter)
 
-Pour éviter des facturations excessives ou inattendues, les mécanismes de sécurité suivants sont mis en place :
 1. **Pas de requêtes automatiques** : L'application ne charge aucune donnée au montage de la page ni via polling.
-2. **Rafraîchissement manuel** : La synchronisation des conversations s'effectue exclusivement par le clic sur le bouton **"Rafraîchir les messages X"**.
-3. **Cooldown de 60 secondes** : Le bouton de rafraîchissement se désactive pendant 60 secondes après chaque clic, affichant un compte à rebours visuel.
-4. **Validation d'envoi** : Toute réponse écrite déclenche une modale de confirmation d'envoi pour éviter les clics accidentels facturés.
-5. **Compteur d'appels** : Un compteur affiche en permanence le nombre d'appels API effectués pendant la session de navigation.
+2. **Rafraîchissement manuel** : La synchronisation s'effectue par clic sur le bouton **"Rafraîchir les messages X"**.
+3. **Cooldown de 60 secondes** : Compte à rebours de sécurité bloquant les appels successifs.
+4. **Validation d'envoi** : Modale de confirmation avant d'écrire un message (facturation d'écriture).
+5. **Compteur d'appels** : Compteur dynamique affichant les appels API de la session courante limités à 150.
 
 ---
 
 ## 🚀 Lancement de l'application
 
-Lancez le serveur de développement en local :
+Lancez le serveur de développement :
 ```bash
 npm run dev
 ```
 
-L'application sera accessible sur [http://localhost:3000](http://localhost:3000).
+L'application sera accessible sur [http://localhost:3000](http://localhost:3000). Vous serez automatiquement redirigé vers `/login` pour vous connecter ou créer un compte.

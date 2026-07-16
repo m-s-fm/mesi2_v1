@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TwitterApi } from 'twitter-api-v2';
 import { supabase } from '@/lib/supabase';
+import { creerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+/**
+ * Endpoint API pour initier le flux OAuth 2.0 PKCE vers Twitter/X.
+ */
+export async function GET(requete: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('user_id');
+    const clientSupabase = await creerClient();
+    const { data: { user: utilisateur } } = await clientSupabase.auth.getUser();
 
-    if (!userId) {
+    if (!utilisateur) {
       return NextResponse.json(
-        { error: "Le paramètre user_id (UUID) est requis pour lier le compte X." },
-        { status: 400 }
+        { error: "Non autorisé. Veuillez vous connecter d'abord." },
+        { status: 401 }
       );
     }
 
+    const idUtilisateur = utilisateur.id;
     const clientId = process.env.X_CLIENT_ID;
     const clientSecret = process.env.X_CLIENT_SECRET;
 
@@ -26,46 +31,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Instancier le client Twitter API v2 en mode OAuth2
-    const client = new TwitterApi({
+    const clientTwitter = new TwitterApi({
       clientId: clientId,
       clientSecret: clientSecret,
     });
 
-    //   const redirectUri = `${new URL(request.url).origin}/api/x/callback`;
-    const redirectUri = process.env.X_REDIRECT_URI;
+    const lienRedirection = process.env.X_REDIRECT_URI;
 
-    if (!redirectUri) {
+    if (!lienRedirection) {
       throw new Error("X_REDIRECT_URI n'est pas défini dans .env.local");
     }
 
-    // Générer le lien OAuth 2.0 PKCE
-    const { url, codeVerifier, state } = client.generateOAuth2AuthLink(
-      redirectUri,
+    // Générer l'URL d'autorisation et le couple verifier/state requis par OAuth 2.0 PKCE
+    const { url: lienAutorisation, codeVerifier: verificateurCode, state: etat } = clientTwitter.generateOAuth2AuthLink(
+      lienRedirection,
       { scope: ['tweet.read', 'users.read', 'dm.read', 'dm.write', 'offline.access'] }
     );
 
-    // Enregistrer l'état de la tentative de connexion en base (x_login_attempts)
-    const { error: dbError } = await supabase.from('x_login_attempts').insert({
-      user_id: userId,
-      code_verifier: codeVerifier,
-      state: state,
+    // Enregistrer la tentative en base de données pour la valider lors du callback (via client admin)
+    const { error: erreurDb } = await supabase.from('x_login_attempts').insert({
+      user_id: idUtilisateur,
+      code_verifier: verificateurCode,
+      state: etat,
     });
 
-    if (dbError) {
-      console.error("Erreur lors de l'enregistrement de la tentative de connexion :", dbError);
+    if (erreurDb) {
+      console.error("Erreur lors de l'enregistrement de la tentative de connexion :", erreurDb);
       return NextResponse.json(
         { error: "Impossible de lancer le flux d'autorisation (erreur base de données)." },
         { status: 500 }
       );
     }
 
-    // Rediriger l'utilisateur vers X
-    return NextResponse.redirect(url);
-  } catch (error: any) {
-    console.error("Erreur d'initialisation de l'authentification X :", error);
+    return NextResponse.redirect(lienAutorisation);
+  } catch (erreur: any) {
+    console.error("Erreur d'initialisation de l'authentification X :", erreur);
     return NextResponse.json(
-      { error: error.message || "Erreur interne du serveur." },
+      { error: erreur.message || "Erreur interne du serveur." },
       { status: 500 }
     );
   }
