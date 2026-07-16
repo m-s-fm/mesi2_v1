@@ -38,6 +38,7 @@ export default function BoutonRafraichir({
       return `Liez votre compte ${nomAffiche} d'abord`;
     }
     if (secondesAttente > 0) return `Rafraîchir (${secondesAttente}s)`;
+    if (plateformeCible === 'discord') return "Rafraîchir les salons Discord";
     return `Rafraîchir les messages ${estTwitter ? 'X' : plateformeCible.charAt(0).toUpperCase() + plateformeCible.slice(1)}`;
   };
 

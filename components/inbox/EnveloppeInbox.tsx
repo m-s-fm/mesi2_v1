@@ -174,9 +174,6 @@ export default function EnveloppeInbox() {
           <span className="text-lg font-bold bg-gradient-to-r from-white to-zinc-500 bg-clip-text text-transparent tracking-tight">
             MesiComunication
           </span>
-          <span className="px-2 py-0.5 text-xs font-semibold bg-zinc-800 text-zinc-400 rounded-full">
-            MVP
-          </span>
         </div>
 
         {/* Onglets de sélection des plateformes */}

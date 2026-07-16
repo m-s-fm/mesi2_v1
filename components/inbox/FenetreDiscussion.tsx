@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { User, Send, Loader2, MessageSquare } from 'lucide-react';
+import { User, Send, Loader2, MessageSquare, Hash } from 'lucide-react';
 import { FilDiscussion, Participant } from '@/lib/providers/types';
 import BulleMessage from './BulleMessage';
 import { IconeTwitter, IconeDiscord } from './OngletsPlateformes';
@@ -90,7 +90,11 @@ export default function FenetreDiscussion({
       {/* En-tête de la conversation */}
       <div className="px-6 py-4 border-b border-[#1e1e24] flex items-center justify-between bg-[#0d0d0f]/90 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          {interlocuteur.urlAvatar ? (
+          {fil.plateforme === 'discord' ? (
+            <div className="w-8 h-8 rounded-full bg-indigo-950/40 border border-indigo-900/60 flex items-center justify-center">
+              <Hash className="w-4 h-4 text-[#5865F2]" />
+            </div>
+          ) : interlocuteur.urlAvatar ? (
             <img
               src={interlocuteur.urlAvatar}
               alt={interlocuteur.nom}
@@ -103,9 +107,9 @@ export default function FenetreDiscussion({
           )}
           <div>
             <h3 className="text-xs font-bold text-white flex items-center gap-2">
-              {interlocuteur.nom}
+              {fil.plateforme === 'discord' ? (fil.nomFil || 'Salon Discord') : interlocuteur.nom}
             </h3>
-            {interlocuteur.nomUtilisateur && (
+            {fil.plateforme !== 'discord' && interlocuteur.nomUtilisateur && (
               <p className="text-[10px] text-zinc-500 font-mono">
                 @{interlocuteur.nomUtilisateur}
               </p>
@@ -148,7 +152,7 @@ export default function FenetreDiscussion({
               rows={2}
               value={texteReponse}
               onChange={(e) => definirTexteReponse(e.target.value)}
-              placeholder={`Répondre à ${interlocuteur.nom || 'cet utilisateur'}...`}
+              placeholder={fil.plateforme === 'discord' ? `Répondre dans ${fil.nomFil || 'le salon'}...` : `Répondre à ${interlocuteur.nom || 'cet utilisateur'}...`}
               className="w-full bg-transparent border-0 px-4 py-3 text-xs text-white placeholder-zinc-500 focus:ring-0 focus:outline-none resize-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {

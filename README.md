@@ -19,46 +19,19 @@ Les anciennes tables de développement Telegram ont été supprimées et le code
 
 ---
 
-## ⚙️ Configuration & Installation
 
-
-**Optionnel :** Si vous souhaitez supprimer les anciens messages d'une plateforme Telegram inutilisée dans la table `messages`, exécutez la requête SQL suivante :
-```sql
-DELETE FROM messages WHERE platform = 'telegram';
-```
-
-### 2. Installation des dépendances
+### . Installation des dépendances
 À la racine du projet, installez les modules requis :
 ```bash
 npm install
+
+puis npm run bot pour lancer le bot discord 
+
+puis npm run dev pour run le projet
 ```
 
-### 3. Configuration des variables d'environnement
+### . Configuration des variables d'environnement
 Créez ou modifiez votre fichier `.env.local` et renseignez les variables requises :
-```env
-# Clés Supabase
-NEXT_PUBLIC_SUPABASE_URL="https://votre-projet.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="votre_cle_publique_anon"
-SUPABASE_SERVICE_ROLE_KEY="votre_cle_service_role"
-
-# Chiffrement session (64 caractères hexadécimaux)
-SESSION_ENCRYPTION_KEY="votre_cle_de_chiffrement_hex"
-
-# OAuth 2.0 X (Twitter)
-X_CLIENT_ID="votre_client_id"
-X_CLIENT_SECRET="votre_client_secret"
-X_REDIRECT_URI="http://127.0.0.1:3000/api/x/callback"
-
-# Configuration Stripe
-STRIPE_SECRET_KEY="sk_test_..."
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
-NEXT_PUBLIC_STRIPE_PRICE_ID="price_..."
-
-# Configuration Discord
-DISCORD_CLIENT_ID=""
-DISCORD_CLIENT_SECRET="
-DISCORD_REDIRECT_URI=""
 ```
 
 ---
@@ -96,4 +69,4 @@ Lancez le serveur de développement :
 npm run dev
 ```
 
-L'application sera accessible sur [http://localhost:3000](http://localhost:3000). Vous serez automatiquement redirigé vers `/login` pour vous connecter ou créer un compte.
+L'application sera accessible sur [http://localhost:3000](http://localhost:3000) et http://127.0.0.1:3000/. Vous serez automatiquement redirigé vers `/login` pour vous connecter ou créer un compte.
